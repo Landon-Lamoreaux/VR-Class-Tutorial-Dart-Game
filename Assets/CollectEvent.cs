@@ -18,6 +18,38 @@ public class CollectEvent : MonoBehaviour
         filter = GetComponent<PlayerInput>();
         grab = filter.actions["Grab"];
         release = filter.actions["Release"];
+        filter.actions["Throw"].performed += OnThrow;
+    }
+
+    private ReleaseEvent releaseScript;
+    public void setReleaseFunction(ReleaseEvent obj)
+    {
+        releaseScript = obj;
+    }
+
+    [SerializeField]
+    private float force = 75f;
+    public void OnThrow(InputAction.CallbackContext context)
+    {
+        if (darts.Count > 0)
+        {
+            Transform hand = transform.Find("Camera/Hand");
+
+            // Get dart, and reenable.
+            GameObject dart = darts[0];
+            darts.RemoveAt(0);
+            dart.SetActive(true);
+
+            // Place in hand, and do a final rotation since the axis are not the same.
+            dart.transform.position = hand.position;
+            dart.transform.localRotation = hand.rotation;
+            Quaternion rotate = Quaternion.Euler(90, 0, 0);
+            dart.transform.localRotation *= rotate;
+
+            // Apply force.
+            Rigidbody body = dart.GetComponent<Rigidbody>();
+            body.AddForce(hand.forward * force, ForceMode.Force);
+        }
     }
 
     // Grab action.
@@ -64,7 +96,7 @@ public class CollectEvent : MonoBehaviour
             // Ray r = new Ray(hand.position, (hand.position - temp.transform.position).normalized);
             Ray r = new Ray(hand.position, lineTo);
             RaycastHit hit;
-            Physics.Raycast(r, out hit, lineTo.magnitude);
+            Physics.Raycast(r, out hit, lineTo.magnitude, 1);
 
             // If no hit, nothing there, but also ignore self collision.
             if (hit.collider == null || hit.collider.gameObject == temp)
@@ -97,7 +129,14 @@ public class CollectEvent : MonoBehaviour
     {
         if (inHand != null)
         {
-            inHand.transform.parent = null;
+            if (releaseScript != null)
+            {
+                releaseScript.SnapRelease(inHand);
+            }
+            else
+            {
+                inHand.transform.parent = null;
+            }
             inHand = null;
         }
     }
